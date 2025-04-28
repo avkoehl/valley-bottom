@@ -36,6 +36,7 @@ floors = floors.astype(np.uint8)
 
 for _, reach in reaches.iterrows():
     # REM APPROACH ON FLAT GRADIENT REACHES
+    # INTERVAL, SLOPE THRESHOLD, EXTENT, HOLE CLOSING
     if reach["mean_slope"] < 3:
         extent = define_valley_extent(
             reach["geometry"],
@@ -57,6 +58,9 @@ for _, reach in reaches.iterrows():
         print(f"Low Gradient Reach {reach['streamID']} threshold: {threshold}")
         floors.data[reach_rem <= threshold] = 1
     else:
+        # INTERVAL, SLOPE THRESHOLD, EXTENT, HOLE CLOSING
+        # SLOPE OF DEM OR HAND?  -> SLOPE OF DEM
+        # USE MEDIAN INSTEAD OF MEAN
         masked_hand = hand.where(basins == reach["streamID"])
         df = analyze_rem_contours(masked_hand, interval=3)
         threshold = df[df["mean_slope"] > 10]["max"].min()
