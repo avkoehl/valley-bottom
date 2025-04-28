@@ -3,7 +3,6 @@ align_flowlines
 hand_and_basins
 """
 
-import pandas as pd
 import geopandas as gpd
 import numpy as np
 from shapely import LineString
@@ -14,6 +13,7 @@ from remaster.utils.wbw_helper import (
     wbeRaster_to_rxr,
     rxr_to_wbeRaster,
 )
+from remaster.utils.geom import binary_raster_to_polygon
 
 
 def vectorize_streams(stream, flow_acc, pointer, wbe, min_length):
@@ -91,18 +91,48 @@ def align_flowlines(dem, flowlines, wbe, min_length=15):
 
 def hand_and_basins(dem, flowlines, wbe):
     dem = rxr_to_wbeRaster(dem, wbe)
-    flowlines = gpd_to_wbeVector(flowlines, wbe)
+    flowlines_wbe = gpd_to_wbeVector(flowlines, wbe)
     conditioned = wbe.fill_depressions(
         dem, fix_flats=True, flat_increment=None, max_depth=None
     )
     pointer = wbe.d8_pointer(conditioned)
     flow_acc = wbe.d8_flow_accum(pointer, out_type="cells", input_is_pointer=True)
-    stream = wbe.rasterize_streams(flowlines, dem, use_feature_id=True)
+    stream = wbe.rasterize_streams(flowlines_wbe, dem, use_feature_id=True)
     hand = wbe.elevation_above_stream(conditioned, stream)
     pour_points = _identify_pour_points(stream, flow_acc, wbe)
     basins = wbe.watershed(pointer, pour_points)
+    basins = label_basins(basins, flowlines, wbe)
     hand, basins = wbeRaster_to_rxr(hand, wbe), wbeRaster_to_rxr(basins, wbe)
     return hand, basins
+
+
+def label_basins(basins, flowlines, wbe):
+    # Label basins with the stream ID
+    basins = wbeRaster_to_rxr(basins, wbe)
+    new_basins = basins.copy()
+
+    for basin_id in np.unique(basins.data):
+        if basin_id == 0:
+            continue
+        if not np.isfinite(basin_id):
+            continue
+
+        mask = basins == basin_id
+        basindf = binary_raster_to_polygon(mask, return_df=True)
+        clipped = flowlines.clip(basindf)
+        if clipped.empty:
+            continue
+        # get the stream ID of the clipped flowline with the biggest length
+        clipped["olap"] = clipped.geometry.length
+        clipped = clipped.sort_values("olap", ascending=False)
+        stream_id = clipped.iloc[0].streamID
+
+        # assign the stream ID to the basin
+        new_basins.data[mask] = stream_id
+
+    # convert back to wbeRaster
+    new_basins = rxr_to_wbeRaster(new_basins, wbe)
+    return new_basins
 
 
 def _identify_source_nodes(pointer, stream, wbe):
@@ -144,12 +174,12 @@ def _identify_pour_points(stream, flow_acc, wbe):
     flow_acc_rxr = wbeRaster_to_rxr(flow_acc, wbe)
 
     pour_points = []
-    for stream_id in np.unique(stream_rxr.data):
-        if stream_id == 0:
+    for stream_val in np.unique(stream_rxr.data):
+        if stream_val == 0:
             continue
-        if np.isnan(stream_id):
+        if np.isnan(stream_val):
             continue
-        rows, cols = np.where(stream_rxr.data == stream_id)
+        rows, cols = np.where(stream_rxr.data == stream_val)
         x_coords = stream_rxr.x.values[cols]
         y_coords = stream_rxr.y.values[rows]
         flow_acc_values = flow_acc_rxr.data[rows, cols]

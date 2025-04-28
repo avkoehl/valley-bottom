@@ -19,7 +19,7 @@ def coords_along_linestring(linestring, sample_distance):
     return xr.DataArray(xs, dims="z"), xr.DataArray(ys, dims="z")
 
 
-def binary_raster_to_polygon(raster):
+def binary_raster_to_polygon(raster, return_df=False):
     # assume anywhere value is not zero or nan is a polygon
     image = np.where(raster.data != 0, 1, 0)
     image = image.astype(np.uint8)
@@ -37,6 +37,9 @@ def binary_raster_to_polygon(raster):
             polygons.append(Polygon(exterior, interior))
 
     df = gpd.GeoDataFrame(polygons, columns=["geometry"], crs=raster.rio.crs)
+    if return_df:
+        return df
+
     polygon = df.union_all().buffer(0.01)
     if isinstance(polygon, Polygon):
         return polygon
