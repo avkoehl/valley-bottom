@@ -1,8 +1,11 @@
+import time
+
 import numpy as np
 from xrspatial import slope as calc_slope
 from whitebox_workflows import WbEnvironment
 from skimage.morphology import remove_small_holes
 from shapely.geometry import mapping
+from loguru import logger
 
 from remaster.hydro import align_flowlines
 from remaster.hydro import hand_and_basins
@@ -13,6 +16,7 @@ from remaster.contour_analysis import analyze_rem_contours
 from remaster.rem import compute_rem
 from remaster.config import Config
 from remaster.utils.smooth import smooth_raster
+from remaster.utils.time import format_time_duration
 
 
 def extract_valleyfloors(dem, flowlines, config=Config()):
@@ -33,8 +37,15 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     xarray.DataArray
         The extracted valley floors.
     """
+    start_time = time.time()
+    logger.info(
+        f"Starting valley floor extraction with DEM shape: {dem.shape}, resolution: {dem.rio.resolution()}, and {len(flowlines)} flowlines"
+    )
+    logger.debug(f"Configuration parameters: {config.__dict__}")
+
     wbe = WbEnvironment()
 
+    logger.info("Starting preprocessing steps (slope, flowlines, reaches, HAND, graph)")
     slope = calc_slope(smooth_raster(dem, config.spatial_radius, config.sigma))
     aligned_flowlines = align_flowlines(dem, flowlines, wbe)
     reaches = network_reaches(
@@ -54,9 +65,10 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     # iterate through reaches
     counter = 1
     total = len(reaches)
-    for index, reach in reaches.iterrows():
+    logger.info(f"Starting valley delineation for {total} reaches")
+    for _, reach in reaches.iterrows():
         current_progress = int((counter / total) * 100)
-        print(
+        logger.debug(
             f"Processing reach {reach['streamID']} {counter}/{total} ({current_progress}%)"
         )
         if reach["mean_slope"] < config.gradient_threshold:
@@ -83,6 +95,7 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
         floors.data[floor_mask] = 1
         counter += 1
 
+    logger.info("Post-processing the valley floor mask")
     floors = post_process_floor_mask(
         floors,
         slope,
@@ -90,6 +103,9 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
         config.floor_max_slope,
         config.min_hole_to_keep_area,
     )
+    end_time = time.time()
+    elapsed_time = format_time_duration(end_time - start_time)
+    logger.info(f"Valley floor extraction completed, execution time: {elapsed_time}")
     return floors
 
 
