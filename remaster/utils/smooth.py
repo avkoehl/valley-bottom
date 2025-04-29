@@ -4,7 +4,18 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 
 
-def filter_gaussian_nan_conserve(raster, spatial_radius, sigma):
+def smooth_raster(raster, spatial_radius, sigma):
+    result = copy.deepcopy(raster)
+    nan_msk = np.isnan(raster.data)
+    radius_pixels = int(round(spatial_radius / raster.rio.resolution()[0]))
+    # Apply a gaussian filter to the data
+    result.data = _filter_gaussian_nan_conserve(raster.data, radius_pixels, sigma)
+    # Set the nodata values back to NaN
+    result.data[nan_msk] = np.nan
+    return result
+
+
+def _filter_gaussian_nan_conserve(arr, radius_pixels, sigma):
     """Apply a gaussian filter to an array with nans.
     modified from:
     https://stackoverflow.com/a/61481246
@@ -15,10 +26,6 @@ def filter_gaussian_nan_conserve(raster, spatial_radius, sigma):
     to a gaussian distribution.
     All nans in arr, stay nans in gauss.
     """
-    ras = copy.deepcopy(raster)
-    arr = ras.data.copy()
-    resolution = raster.rio.resolution()[0]
-    radius_pixels = int(round(spatial_radius / resolution))
     nan_msk = np.isnan(arr)
 
     loss = np.zeros(arr.shape)
@@ -35,6 +42,4 @@ def filter_gaussian_nan_conserve(raster, spatial_radius, sigma):
     gauss[nan_msk] = np.nan
 
     gauss += loss * arr
-
-    ras.data = gauss
-    return ras
+    return gauss

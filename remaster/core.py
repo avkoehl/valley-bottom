@@ -12,7 +12,7 @@ from remaster.extent import define_valley_extent
 from remaster.contour_analysis import analyze_rem_contours
 from remaster.rem import compute_rem
 from remaster.config import Config
-from remaster.utils.smooth import filter_gaussian_nan_conserve
+from remaster.utils.smooth import smooth_raster
 
 
 def extract_valleyfloors(dem, flowlines, config=Config()):
@@ -35,10 +35,7 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     """
     wbe = WbEnvironment()
 
-    slope = calc_slope(
-        filter_gaussian_nan_conserve(dem, config.spatial_radius, config.sigma)
-    )
-
+    slope = calc_slope(smooth_raster(dem, config.spatial_radius, config.sigma))
     aligned_flowlines = align_flowlines(dem, flowlines, wbe)
     reaches = network_reaches(
         aligned_flowlines,
@@ -103,8 +100,9 @@ def post_process_floor_mask(floors, slope, reaches, max_slope, min_hole_area):
     # attach reach
     geom = mapping(reaches.geometry.union_all())
     copy = floors.copy().astype(np.float32)
-    reach_mask = copy.rio.clip([geom], all_touched=True, drop=False).notnull()
-    floors.data[reach_mask] = 1
+    copy.data = np.ones_like(floors.data)
+    reach_mask = copy.rio.clip([geom], all_touched=True, drop=False)
+    floors.data[reach_mask > 0] = 1
 
     num_cells = min_hole_area / (slope.rio.resolution()[0] ** 2)
     floors.data = remove_small_holes(floors.data > 0, int(num_cells))
