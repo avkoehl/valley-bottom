@@ -2440,4 +2440,4 @@ tests = ["flake8", "isort", "noise (>=1.2.2)", "pytest", "pytest-cov"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "df1284fd8e0a5f63110d77d691a05d5d54623c74d96304d0797b2729289d74be"
+content-hash = "a377e37d8a636ad0f6a08d56ca74451fb8c9f833050fc7dc78a5e8395c6359ba"

@@ -7,6 +7,7 @@ import geopandas as gpd
 import numpy as np
 from shapely import LineString
 from shapely import Point
+import networkx as nx
 
 from remaster.utils.wbw_helper import (
     gpd_to_wbeVector,
@@ -16,7 +17,7 @@ from remaster.utils.wbw_helper import (
 from remaster.utils.geom import binary_raster_to_polygon
 
 
-def vectorize_streams(stream, flow_acc, pointer, wbe, min_length):
+def vectorize_aligned_streams(stream, flow_acc, pointer, wbe, min_length):
     junctions = _identify_junction_nodes(pointer, stream, wbe)
     stream = wbeRaster_to_rxr(stream, wbe)
     flow_acc = wbeRaster_to_rxr(flow_acc, wbe)
@@ -71,7 +72,6 @@ def vectorize_streams(stream, flow_acc, pointer, wbe, min_length):
 def align_flowlines(dem, flowlines, wbe, min_length=15):
     # returns flowlines gpd.GeoSeries
     dem = rxr_to_wbeRaster(dem, wbe)
-    flowlines = gpd_to_wbeVector(flowlines, wbe)
 
     conditioned = wbe.fill_depressions(
         dem, fix_flats=True, flat_increment=None, max_depth=None
@@ -79,12 +79,10 @@ def align_flowlines(dem, flowlines, wbe, min_length=15):
     pointer = wbe.d8_pointer(conditioned)
     flow_acc = wbe.d8_flow_accum(pointer, out_type="cells", input_is_pointer=True)
 
-    stream = wbe.rasterize_streams(flowlines, dem, use_feature_id=True)
-    seed_points = _identify_source_nodes(pointer, stream, wbe)
-    # ^^ THIS DOESNT WORK IF NOT ALREADY ALIGNED!
+    seed_points = _identify_source_nodes(flowlines, wbe)
     aligned_stream = wbe.trace_downslope_flowpaths(seed_points, pointer)
     labeled_stream = wbe.stream_link_identifier(pointer, aligned_stream)
-    aligned_flowlines = vectorize_streams(
+    aligned_flowlines = vectorize_aligned_streams(
         labeled_stream, flow_acc, pointer, wbe, min_length=min_length
     )
     return aligned_flowlines
@@ -136,22 +134,24 @@ def label_basins(basins, flowlines, wbe):
     return new_basins
 
 
-def _identify_source_nodes(pointer, stream, wbe):
-    # Find source nodes (link class 3) in the stream raster
-    link_class = wbe.stream_link_class(pointer, stream)
-    link_class_rxr = wbeRaster_to_rxr(link_class, wbe)
+def _identify_source_nodes(flowlines, wbe):
+    G = nx.DiGraph()
+    for flowline in flowlines.geometry:
+        start = flowline.coords[0]
+        end = flowline.coords[-1]
+        G.add_edge(start, end)
 
-    rows, cols = np.where(link_class_rxr.data == 3)
-    x_coords = link_class_rxr.x.values[cols]
-    y_coords = link_class_rxr.y.values[rows]
-    geo_series = gpd.GeoSeries(
-        gpd.points_from_xy(x_coords, y_coords), crs=link_class_rxr.rio.crs
-    )
-    sources = gpd_to_wbeVector(geo_series, wbe)
-    return sources
+    source_nodes = []
+    for node in G.nodes():
+        if G.in_degree(node) == 0:
+            source_nodes.append(Point(node))
+    source_nodes = gpd.GeoSeries(source_nodes, crs=flowlines.crs)
+    source_nodes = gpd_to_wbeVector(source_nodes, wbe)
+    return source_nodes
 
 
 def _identify_junction_nodes(pointer, stream, wbe, return_type="gpd"):
+    # NEEDS TO BE PROPERLY ALIGNED STREAM RASTER
     # Find junction nodes (link class 4) in the stream raster
     link_class = wbe.stream_link_class(pointer, stream)
     link_class_rxr = wbeRaster_to_rxr(link_class, wbe)
@@ -170,6 +170,7 @@ def _identify_junction_nodes(pointer, stream, wbe, return_type="gpd"):
 
 
 def _identify_pour_points(stream, flow_acc, wbe):
+    # NEEDS TO BE PROPERLY ALIGNED STREAM RASTER
     # simply return the stream cell with the highest flow accumulation
     stream_rxr = wbeRaster_to_rxr(stream, wbe)
     flow_acc_rxr = wbeRaster_to_rxr(flow_acc, wbe)
