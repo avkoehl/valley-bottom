@@ -1,9 +1,8 @@
 import numpy as np
 import pandas as pd
-from xrspatial import slope as calc_slope
 
 """
-analyze contours in the REM at a set interval (5 meters)
+analyze contours in the REM at a set interval 
 
 Look for changes between contours in mean slope, and in the area of the contour
 
@@ -12,8 +11,7 @@ where the floor transitions to the walls, the contours should closer together an
 """
 
 
-def analyze_rem_contours(rem_raster, interval=5):
-    slope_raster = calc_slope(rem_raster)
+def analyze_rem_contours(rem_raster, slope_raster, interval):
     # everything below 0 becomes 0
     min_elev = rem_raster.min().item()
     rem_raster = rem_raster.where(rem_raster >= 0, 0)
@@ -34,7 +32,7 @@ def analyze_rem_contours(rem_raster, interval=5):
             continue
 
         # Get mean slope for this interval
-        mean_slope = slope_raster.where(mask).mean().item()
+        median_slope = slope_raster.where(mask).median().item()
 
         num_pixels = mask.sum().item()
         pixel_area = np.abs(
@@ -47,7 +45,7 @@ def analyze_rem_contours(rem_raster, interval=5):
             {
                 "min": min_val,
                 "max": max_val,
-                "mean_slope": mean_slope,
+                "median_slope": median_slope,
                 "area": area,
             }
         )

@@ -12,10 +12,10 @@ from scipy.spatial import cKDTree as KDTree
 from remaster.utils.geom import coords_along_linestring
 
 
-def compute_rem(linestring, dem, sample_distance, max_val, min_val):
+def compute_rem(linestring, dem, sample_distance):
     points = _trend_line(linestring, dem, sample_distance)
     coords = np.array([points.geometry.x, points.geometry.y]).T
-    values = points["elevation"].values
+    values = points["fit"].values
 
     c_x, c_y = [dem.coords[c].values for c in ("x", "y")]
     c_interpolated = np.dstack(np.meshgrid(c_x, c_y)).reshape(-1, 2)
@@ -23,7 +23,7 @@ def compute_rem(linestring, dem, sample_distance, max_val, min_val):
     tree = KDTree(coords)
     distances, indices = tree.query(c_interpolated, k=5)
 
-    weights = 1 / distances
+    weights = 1 / (distances + 1e-10)  # avoid division by zero
     weights = weights / weights.sum(axis=1).reshape(-1, 1)
     interpolated_values = (weights * values[indices]).sum(axis=1)
 
@@ -34,8 +34,6 @@ def compute_rem(linestring, dem, sample_distance, max_val, min_val):
     )
 
     rem = dem - trend_raster
-    rem = rem.where(rem <= max_val)
-    rem = rem.where(rem >= min_val)
     return rem
 
 
