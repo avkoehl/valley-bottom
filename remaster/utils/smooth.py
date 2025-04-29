@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
@@ -13,8 +15,8 @@ def filter_gaussian_nan_conserve(raster, spatial_radius, sigma):
     to a gaussian distribution.
     All nans in arr, stay nans in gauss.
     """
-    ras = raster.copy()
-    arr = raster.data
+    ras = copy.deepcopy(raster)
+    arr = ras.data.copy()
     resolution = raster.rio.resolution()[0]
     radius_pixels = int(round(spatial_radius / resolution))
     nan_msk = np.isnan(arr)
