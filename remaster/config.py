@@ -61,7 +61,7 @@ class Config:
 
     cost_threshold: int = 30
     rem_sample_distance: int = 10
-    lg_interval: int = 3
+    lg_interval: int = 5
     lg_default_threshold: int = 30
     lg_slope_threshold: int = 7
 
