@@ -46,8 +46,11 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     wbe = WbEnvironment()
 
     logger.info("Starting preprocessing steps (slope, flowlines, reaches, HAND, graph)")
+    logger.debug("Compute slope")
     slope = calc_slope(smooth_raster(dem, config.spatial_radius, config.sigma))
+    logger.debug("Align Flowlines to dem")
     aligned_flowlines = align_flowlines(dem, flowlines, wbe)
+    logger.debug("Split flowlines into reaches by shifts in slope")
     reaches = network_reaches(
         aligned_flowlines,
         slope,
@@ -55,7 +58,9 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
         config.pelt_penalty,
         config.minsize,
     )
+    logger.debug("Compute HAND and reach catchments")
     hand, basins = hand_and_basins(dem, reaches, wbe)
+    logger.debug("Create cost distance graph")
     graph = dem_to_graph(dem.data, walls=np.isnan(dem.data))
     floors = dem.copy()
     floors.data = np.zeros_like(dem.data)
