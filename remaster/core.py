@@ -4,6 +4,7 @@ import numpy as np
 from xrspatial import slope as calc_slope
 from whitebox_workflows import WbEnvironment
 from skimage.morphology import remove_small_holes
+from skimage.morphology import label
 from shapely.geometry import mapping
 from loguru import logger
 
@@ -118,16 +119,36 @@ def post_process_floor_mask(floors, slope, reaches, max_slope, min_hole_area):
     # apply slope threshold
     floors.data[slope >= max_slope] = 0
 
-    # attach reach
+    # burnin reach
     geom = mapping(reaches.geometry.union_all())
     copy = floors.copy().astype(np.float32)
     copy.data = np.ones_like(floors.data)
     reach_mask = copy.rio.clip([geom], all_touched=True, drop=False)
     floors.data[reach_mask > 0] = 1
 
+    # remove small holes
     num_cells = min_hole_area / (slope.rio.resolution()[0] ** 2)
     floors.data = remove_small_holes(floors.data > 0, int(num_cells))
+
+    # remove any areas that are not connected to the reach_mask
+    floors.data = remove_disconnected_areas(floors.data, reach_mask)
+
     return floors.astype(np.uint8)
+
+
+def remove_disconnected_areas(floor_mask_arr, reach_mask_arr):
+    labeled = label(floor_mask_arr, connectivity=2)
+
+    values = labeled[reach_mask_arr > 0]
+    values = np.unique(values)
+    values = np.isfinite(values)
+
+    labeled = np.where(
+        np.isin(labeled, values, invert=True), 0, labeled
+    )  # remove all other areas
+    floor_mask_arr = np.where(labeled > 0, 1, 0)  # convert to binary mask
+    floor_mask_arr = floor_mask_arr.astype(np.uint8)
+    return floor_mask_arr
 
 
 def process_low_gradient_reach(
