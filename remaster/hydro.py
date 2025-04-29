@@ -17,6 +17,44 @@ from remaster.utils.wbw_helper import (
 from remaster.utils.geom import binary_raster_to_polygon
 
 
+def fill_depressions_with_retry(
+    dem, wbe, fix_flats=True, flat_increment=None, max_depth=None, retry_counter=3
+):
+    """
+    Wrapper for fill_depressions that retries on failure.
+
+    Raises:
+    -------
+    Exception
+        If all retry attempts fail, the last exception is raised
+    """
+    attempt = 0
+    last_exception = None
+
+    while attempt < retry_counter:
+        try:
+            # Call the original function
+            conditioned = wbe.fill_depressions(
+                dem,
+                fix_flats=fix_flats,
+                flat_increment=flat_increment,
+                max_depth=max_depth,
+            )
+            # If successful, return the result
+            return conditioned
+        except Exception as e:
+            # Store the exception
+            last_exception = e
+            # Increment the attempt counter
+            attempt += 1
+            print(f"Attempt {attempt}/{retry_counter} failed. Retrying...")
+
+    # If we've exhausted all retries, raise the last exception
+    raise last_exception or Exception(
+        "Failed to execute fill_depressions after multiple attempts"
+    )
+
+
 def vectorize_aligned_streams(stream, flow_acc, pointer, wbe, min_length):
     junctions = _identify_junction_nodes(pointer, stream, wbe)
     stream = wbeRaster_to_rxr(stream, wbe)
@@ -73,8 +111,8 @@ def align_flowlines(dem, flowlines, wbe, min_length=15):
     # returns flowlines gpd.GeoSeries
     dem = rxr_to_wbeRaster(dem, wbe)
 
-    conditioned = wbe.fill_depressions(
-        dem, fix_flats=True, flat_increment=None, max_depth=None
+    conditioned = fill_depressions_with_retry(
+        dem, wbe, fix_flats=True, flat_increment=None, max_depth=None
     )
     pointer = wbe.d8_pointer(conditioned)
     flow_acc = wbe.d8_flow_accum(pointer, out_type="cells", input_is_pointer=True)
@@ -91,8 +129,8 @@ def align_flowlines(dem, flowlines, wbe, min_length=15):
 def hand_and_basins(dem, flowlines, wbe):
     dem = rxr_to_wbeRaster(dem, wbe)
     flowlines_wbe = gpd_to_wbeVector(flowlines, wbe)
-    conditioned = wbe.fill_depressions(
-        dem, fix_flats=True, flat_increment=None, max_depth=None
+    conditioned = fill_depressions_with_retry(
+        dem, wbe, fix_flats=True, flat_increment=None, max_depth=None
     )
     pointer = wbe.d8_pointer(conditioned)
     flow_acc = wbe.d8_flow_accum(pointer, out_type="cells", input_is_pointer=True)
