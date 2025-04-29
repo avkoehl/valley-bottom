@@ -14,3 +14,4 @@ dem = rxr.open_rasterio("./data/dem_160502010301.tif", masked=True).squeeze()
 flowlines = gpd.read_file("./data/nhd_160502010301.gpkg")
 
 floors = extract_valleyfloors(dem, flowlines, config)
+floors.rio.to_raster("floors.tif")

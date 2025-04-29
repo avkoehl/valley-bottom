@@ -81,6 +81,7 @@ def align_flowlines(dem, flowlines, wbe, min_length=15):
 
     stream = wbe.rasterize_streams(flowlines, dem, use_feature_id=True)
     seed_points = _identify_source_nodes(pointer, stream, wbe)
+    # ^^ THIS DOESNT WORK IF NOT ALREADY ALIGNED!
     aligned_stream = wbe.trace_downslope_flowpaths(seed_points, pointer)
     labeled_stream = wbe.stream_link_identifier(pointer, aligned_stream)
     aligned_flowlines = vectorize_streams(

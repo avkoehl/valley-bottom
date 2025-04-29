@@ -38,7 +38,7 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     slope = calc_slope(
         filter_gaussian_nan_conserve(dem, config.spatial_radius, config.sigma)
     )
-    slope = calc_slope(dem)
+
     aligned_flowlines = align_flowlines(dem, flowlines, wbe)
     reaches = network_reaches(
         aligned_flowlines,
