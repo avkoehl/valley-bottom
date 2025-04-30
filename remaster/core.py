@@ -1,13 +1,13 @@
 import time
 
 import numpy as np
-from xrspatial import slope as calc_slope
 from whitebox_workflows import WbEnvironment
 from skimage.morphology import remove_small_holes
 from skimage.morphology import label
 from shapely.geometry import mapping
 from loguru import logger
 
+from remaster.hydro import calc_slope
 from remaster.hydro import align_flowlines
 from remaster.hydro import hand_and_basins
 from remaster.reach import network_reaches
@@ -48,9 +48,12 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
 
     logger.info("Starting preprocessing steps (slope, flowlines, reaches, HAND, graph)")
     logger.debug("Compute slope")
-    slope = calc_slope(smooth_raster(dem, config.spatial_radius, config.sigma))
+    slope = calc_slope(smooth_raster(dem, config.spatial_radius, config.sigma), wbe)
     logger.debug("Align Flowlines to dem")
-    aligned_flowlines = align_flowlines(dem, flowlines, wbe)
+    aligned_flowlines = align_flowlines(
+        dem, flowlines, wbe, min_length=config.min_reach_length
+    )
+
     logger.debug("Split flowlines into reaches by shifts in slope")
     reaches = network_reaches(
         aligned_flowlines,
@@ -59,7 +62,6 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
         config.pelt_penalty,
         config.minsize,
     )
-    reaches = reaches[reaches["length"] > config.min_reach_length]
     logger.debug("Compute HAND and reach catchments")
     hand, basins = hand_and_basins(dem, reaches, wbe)
     logger.debug("Create cost distance graph")

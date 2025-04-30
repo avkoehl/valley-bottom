@@ -18,6 +18,16 @@ from remaster.utils.geom import binary_raster_to_polygon
 from remaster.streams_to_vector import vectorize_flowpaths
 
 
+def calc_slope(dem, wbe):
+    """
+    Calculate slope using WhiteboxTools.
+    """
+    dem = rxr_to_wbeRaster(dem, wbe)
+    slope = wbe.slope(dem)
+    slope = wbeRaster_to_rxr(slope, wbe)
+    return slope
+
+
 def fill_depressions_with_retry(
     dem, wbe, fix_flats=True, flat_increment=None, max_depth=None, retry_counter=3
 ):
@@ -43,7 +53,7 @@ def fill_depressions_with_retry(
     )
 
 
-def align_flowlines(dem, flowlines, wbe, min_length=0):
+def align_flowlines(dem, flowlines, wbe, min_length):
     dem = rxr_to_wbeRaster(dem, wbe)
     conditioned = fill_depressions_with_retry(
         dem, wbe, fix_flats=True, flat_increment=None, max_depth=None
