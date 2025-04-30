@@ -12,6 +12,8 @@ class Config:
         the penalty for the PELT algorithm to segment the flowline slope series
     minsize : int, default=100
         minsize * sample_distance is the minimum length of a reach
+    min_reach_length : int, default=30
+        the minimum length of a reach in meters
     gradient_threshold : int, default=3
         reaches with mean slope less than this are considered low gradient reaches otherwise are high gradient
     spatial_radius : int, default=30
@@ -55,6 +57,7 @@ class Config:
     sample_distance: int = 10
     pelt_penalty: int = 10
     minsize: int = 100
+    min_reach_length: int = 30
     gradient_threshold: int = 3
     spatial_radius: int = 30
     sigma: int = 5

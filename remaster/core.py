@@ -59,6 +59,7 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
         config.pelt_penalty,
         config.minsize,
     )
+    reaches = reaches[reaches["length"] > config.min_reach_length]
     logger.debug("Compute HAND and reach catchments")
     hand, basins = hand_and_basins(dem, reaches, wbe)
     logger.debug("Create cost distance graph")
