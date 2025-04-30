@@ -119,16 +119,17 @@ def post_process_floor_mask(floors, slope, reaches, max_slope, min_hole_area):
     # apply slope threshold
     floors.data[slope >= max_slope] = 0
 
+    # remove small holes
+    num_cells = min_hole_area / (slope.rio.resolution()[0] ** 2)
+    floors.data = remove_small_holes(floors.data > 0, int(num_cells))
+
     # burnin reach
     geom = mapping(reaches.geometry.union_all())
     copy = floors.copy().astype(np.float32)
     copy.data = np.ones_like(floors.data)
     reach_mask = copy.rio.clip([geom], all_touched=True, drop=False)
-    floors.data[reach_mask > 0] = 1
-
-    # remove small holes
-    num_cells = min_hole_area / (slope.rio.resolution()[0] ** 2)
-    floors.data = remove_small_holes(floors.data > 0, int(num_cells))
+    reach_mask = reach_mask > 0
+    floors.data[reach_mask] = 1
 
     # remove any areas that are not connected to the reach_mask
     floors.data = remove_disconnected_areas(floors.data, reach_mask)

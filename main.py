@@ -7,11 +7,14 @@ from remaster.config import Config
 
 config = Config()
 
-# dem = rxr.open_rasterio("./data/dem_180102080204.tif", masked=True).squeeze()
-# flowlines = gpd.read_file("./data/flowlines.gpkg")
+dem = rxr.open_rasterio(
+    "/Users/arthurkoehl/programs/pasternack/valleyx/data/test_sites_10m/1805000203-dem.tif",
+    masked=True,
+).squeeze()
+flowlines = gpd.read_file(
+    "/Users/arthurkoehl/programs/pasternack/valleyx/data/test_sites_10m/1805000203-flowlines.shp"
+)
 
-dem = rxr.open_rasterio("./data/dem_160502010301.tif", masked=True).squeeze()
-flowlines = gpd.read_file("./data/nhd_160502010301.gpkg")
 
 floors = extract_valleyfloors(dem, flowlines, config)
 floors.rio.to_raster("floors.tif")
