@@ -24,21 +24,21 @@ class Config:
         the cost threshold for valley extent definition
     rem_sample_distance : int, default=10
         the distance between points on a flowline to sample for REM
-    lg_interval : int, default=3
+    lg_interval : int, default=10
         the interval for contours to analayze for low gradient reaches
-    lg_default_threshold : int, default=3
+    lg_default_threshold : int, default=30
         the default threshold for low gradient reaches if no contours exceed the slope threshold
-    lg_slope_threshold : int, default=7
+    lg_slope_threshold : int, default=9
         first contour that has median slope greater than this value is used to define the threshold
-    hg_interval : int, default=3
+    hg_interval : int, default=5
         the interval for contours to analayze for high gradient reaches
-    hg_default_threshold : int, default=3
+    hg_default_threshold : int, default=5
         the default threshold for high gradient reaches if no contours exceed the slope threshold
-    hg_slope_threshold : int, default=10
+    hg_slope_threshold : int, default=12
         first contour that has median slope greater than this value is used to define the threshold
     floor_max_slope : int, default=15
         slopes greater than this are removed from the floor mask
-    min_hole_to_keep_area : float, default=40000
+    min_hole_to_keep_area : float, default=100_000
         the minimum area of a hole to keep it in the floor mask
 
     Examples
@@ -64,13 +64,13 @@ class Config:
 
     cost_threshold: int = 30
     rem_sample_distance: int = 10
-    lg_interval: int = 5
+    lg_interval: int = 10
     lg_default_threshold: int = 30
-    lg_slope_threshold: int = 7
+    lg_slope_threshold: int = 9
 
-    hg_interval: int = 3
-    hg_default_threshold: int = 10
-    hg_slope_threshold: int = 10
+    hg_interval: int = 5
+    hg_default_threshold: int = 5
+    hg_slope_threshold: int = 12
 
     floor_max_slope: int = 15
     min_hole_to_keep_area: float = 100000
