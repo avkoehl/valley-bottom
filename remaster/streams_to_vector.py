@@ -27,6 +27,8 @@ def vectorize_flowpaths(stream, pointer, wbe, min_length):
         pointer_arr = pointer_rxr.where(labeled_stream_rxr == stream_id).data
         link_class_arr = link_class_rxr.where(labeled_stream_rxr == stream_id).data
         path = trace_stream_flowpath(link_class_arr, pointer_arr, dirmap)
+        if path is None:  # stream is too short
+            continue
         xs, ys = xy(link_class_rxr.rio.transform(), path[:, 0], path[:, 1])
         linestring = LineString(zip(xs, ys))
         flowlines.append({"geometry": linestring, "streamID": stream_id})
