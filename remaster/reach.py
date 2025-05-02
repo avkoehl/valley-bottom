@@ -13,12 +13,14 @@ import pandas as pd
 from remaster.utils.geom import coords_along_linestring
 
 
-def network_reaches(stream_network, slope_raster, sample_distance, penalty, minsize):
+def network_reaches(
+    stream_network, elevation_raster, sample_distance, penalty, minsize
+):
     # sample_distance = 10, # penalty = 10, minsize = 50
     reach_df_list = []
     for _, row in stream_network.iterrows():
         reaches = segment_reaches(
-            row.geometry, slope_raster, sample_distance, penalty, minsize
+            row.geometry, elevation_raster, sample_distance, penalty, minsize
         )
         reaches["streamID"] = row["streamID"] * 100 + reaches["reach_id"]
         reaches["length"] = reaches.geometry.length
@@ -28,9 +30,12 @@ def network_reaches(stream_network, slope_raster, sample_distance, penalty, mins
     return reaches
 
 
-def segment_reaches(linestring, slope_raster, sample_distance, penalty, minsize):
+def segment_reaches(linestring, elevation_raster, sample_distance, penalty, minsize):
     xs, ys = coords_along_linestring(linestring, sample_distance)
-    slope_values = slope_raster.sel(x=xs, y=ys, method="nearest").values
+    elev_values = elevation_raster.sel(x=xs, y=ys, method="nearest").values
+    elev_changes = np.gradient(elev_values)
+    slope_values = np.degrees(np.arctan(elev_changes / sample_distance))
+    slope_values = np.abs(slope_values)
 
     if linestring.length < (sample_distance * minsize):
         return gpd.GeoDataFrame(
@@ -40,7 +45,7 @@ def segment_reaches(linestring, slope_raster, sample_distance, penalty, minsize)
                 "reach_id": [1],
             },
             geometry="geometry",
-            crs=slope_raster.rio.crs,
+            crs=elevation_raster.rio.crs,
         )
 
     signal = slope_values.reshape(-1, 1)
@@ -55,7 +60,7 @@ def segment_reaches(linestring, slope_raster, sample_distance, penalty, minsize)
                 "reach_id": [1],
             },
             geometry="geometry",
-            crs=slope_raster.rio.crs,
+            crs=elevation_raster.rio.crs,
         )
 
     interpolated_points = [Point(x, y) for x, y in zip(xs, ys)]
@@ -92,7 +97,7 @@ def segment_reaches(linestring, slope_raster, sample_distance, penalty, minsize)
             "reach_id": np.arange(1, len(linestrings) + 1),
         },
         geometry="geometry",
-        crs=slope_raster.rio.crs,
+        crs=elevation_raster.rio.crs,
     )
 
     return gdf

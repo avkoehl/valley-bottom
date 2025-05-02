@@ -57,7 +57,7 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     logger.debug("Split flowlines into reaches by shifts in slope")
     reaches = network_reaches(
         aligned_flowlines,
-        slope,
+        dem,
         config.sample_distance,
         config.pelt_penalty,
         config.minsize,
@@ -90,6 +90,7 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
                 config.lg_interval,
                 config.lg_slope_threshold,
                 config.lg_default_threshold,
+                config.rem_sample_distance,
             )
         else:
             reach_hand = hand.where(basins == reach["streamID"])
@@ -164,6 +165,7 @@ def process_low_gradient_reach(
     lg_interval,
     lg_slope_threshold,
     lg_default_threshold,
+    rem_sample_distance,
 ):
     extent = define_valley_extent(
         reach,
@@ -173,7 +175,9 @@ def process_low_gradient_reach(
         min_hole_to_keep_fraction=0.01,
     )
     masked_dem = dem.where(extent)
-    reach_rem = compute_rem(reach, masked_dem, sample_distance=10)
+    reach_rem = compute_rem(reach, masked_dem, sample_distance=rem_sample_distance)
+    reach_rem = reach_rem.where(reach_rem > lg_interval)
+
     df = analyze_rem_contours(reach_rem, slope, lg_interval)
     threshold = df[df["median_slope"] > lg_slope_threshold]["max"].min()
     if not np.isfinite(threshold):
