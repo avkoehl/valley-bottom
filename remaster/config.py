@@ -22,7 +22,7 @@ class Config:
         the standard deviation of the gaussian filter to smooth the DEM
     cost_threshold : int, default=30
         the cost threshold for valley extent definition
-    rem_sample_distance : int, default=10
+    rem_sample_distance : int, default=30
         the distance between points on a flowline to sample for REM
     lg_interval : int, default=10
         the interval for contours to analayze for low gradient reaches
@@ -63,7 +63,7 @@ class Config:
     sigma: int = 5
 
     cost_threshold: int = 30
-    rem_sample_distance: int = 10
+    rem_sample_distance: int = 30
     lg_interval: int = 10
     lg_default_threshold: int = 30
     lg_slope_threshold: int = 9
