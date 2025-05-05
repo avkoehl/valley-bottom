@@ -12,7 +12,7 @@ class Config:
         the penalty for the PELT algorithm to segment the flowline slope series
     minsize : int, default=100
         minsize * sample_distance is the minimum length of a reach
-    min_reach_length : int, default=30
+    min_reach_length : int, default=150
         the minimum length of a reach in meters
     gradient_threshold : int, default=3
         reaches with mean slope less than this are considered low gradient reaches otherwise are high gradient
@@ -20,7 +20,7 @@ class Config:
         the radius of the gaussian filter to smooth the DEM
     sigma : int, default=5
         the standard deviation of the gaussian filter to smooth the DEM
-    cost_threshold : int, default=30
+    cost_threshold : int, default=50
         the cost threshold for valley extent definition
     rem_sample_distance : int, default=30
         the distance between points on a flowline to sample for REM
@@ -28,7 +28,7 @@ class Config:
         the interval for contours to analayze for low gradient reaches
     lg_default_threshold : int, default=30
         the default threshold for low gradient reaches if no contours exceed the slope threshold
-    lg_slope_threshold : int, default=9
+    lg_slope_threshold : int, default=8
         first contour that has median slope greater than this value is used to define the threshold
     hg_interval : int, default=5
         the interval for contours to analayze for high gradient reaches
@@ -57,16 +57,16 @@ class Config:
     sample_distance: int = 10
     pelt_penalty: int = 10
     minsize: int = 100
-    min_reach_length: int = 30
+    min_reach_length: int = 150
     gradient_threshold: int = 3
     spatial_radius: int = 30
     sigma: int = 5
 
-    cost_threshold: int = 30
+    cost_threshold: int = 50
     rem_sample_distance: int = 30
     lg_interval: int = 10
-    lg_default_threshold: int = 30
-    lg_slope_threshold: int = 9
+    lg_default_threshold: int = 20
+    lg_slope_threshold: int = 8
 
     hg_interval: int = 5
     hg_default_threshold: int = 5
