@@ -71,10 +71,12 @@ def _create_graph_data_numba(dem, walls):
                             continue
 
                     if 0 <= nx < nrows and 0 <= ny < ncols:
-                        cost = 1 if dx == 0 or dy == 0 else 1.41
-                        cost *= dem[nx, ny] - dem[row, col]
+                        elev_cost = np.abs(dem[nx, ny] - dem[row, col])
+                        euclidean_cost = 1 if dx == 0 or dy == 0 else 1.41
+                        euclidean_cost = euclidean_cost * 0.1
+                        cost = elev_cost + euclidean_cost
 
-                        data.append(np.abs(cost))
+                        data.append(cost)
                         row_inds.append(start)
                         col_inds.append(end)
 
