@@ -8,11 +8,13 @@ from remaster.config import Config
 config = Config()
 
 dem = rxr.open_rasterio(
-    "./data/1802015301_dem.tif",
+    # "../eval/data/topo/1804001001_dem.tif",
+    "../eval/data/topo/1807020302_dem.tif",
     masked=True,
 ).squeeze()
 flowlines = gpd.read_file(
-    "./data/1802015301_flowlines.gpkg",
+    ###    "../eval/data/topo/1804001001_flowlines.gpkg",
+    "../eval/data/topo/1807020302_flowlines.gpkg",
 )
 
 

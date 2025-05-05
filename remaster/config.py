@@ -14,22 +14,34 @@ class Config:
         minsize * sample_distance is the minimum length of a reach
     min_reach_length : int, default=150
         the minimum length of a reach in meters
-    gradient_threshold : int, default=3
-        reaches with mean slope less than this are considered low gradient reaches otherwise are high gradient
+    low_gradient_threshold : int, default=1
+        reaches with mean slope less than this are considered low gradient reaches
+    medium_gradient_threshold : int, default=3
+        reaches with mean slope greater than this and less than low_gradient_threshold are considered medium gradient reaches, everything else is high gradient
     spatial_radius : int, default=30
         the radius of the gaussian filter to smooth the DEM
     sigma : int, default=5
         the standard deviation of the gaussian filter to smooth the DEM
-    cost_threshold : int, default=50
-        the cost threshold for valley extent definition
+    lg_max_extent : int, default=50
+        the cost threshold for valley extent definition for low gradient reaches
     rem_sample_distance : int, default=30
-        the distance between points on a flowline to sample for REM
+        the distance between points on a flowline to sample for REM for low gradient reaches
     lg_interval : int, default=10
         the interval for contours to analayze for low gradient reaches
-    lg_default_threshold : int, default=30
+    lg_default_threshold : int, default=20
         the default threshold for low gradient reaches if no contours exceed the slope threshold
     lg_slope_threshold : int, default=8
         first contour that has median slope greater than this value is used to define the threshold
+    mg_max_extent : int, default=50
+        the cost threshold for valley extent definition for medium gradient reaches
+    mg_interval : int, default=10
+        the interval for contours to analayze for medium gradient reaches
+    mg_default_threshold : int, default=10
+        the default threshold for medium gradient reaches if no contours exceed the slope threshold
+    mg_slope_threshold : int, default=10
+        first contour that has median slope greater than this value is used to define the threshold
+    hg_max_extent : int, default=20
+        the cost threshold for valley extent definition for high gradient reaches
     hg_interval : int, default=5
         the interval for contours to analayze for high gradient reaches
     hg_default_threshold : int, default=5
@@ -54,23 +66,39 @@ class Config:
 
     """
 
+    # reach segmentation parameters
     sample_distance: int = 10
     pelt_penalty: int = 10
     minsize: int = 100
     min_reach_length: int = 150
-    gradient_threshold: int = 3
+
+    # reach gradient thresholds
+    low_gradient_threshold: int = 1
+    medium_gradient_threshold: int = 3  # high gradient is anything above this
+
+    # smoothing parameters
     spatial_radius: int = 30
     sigma: int = 5
 
-    cost_threshold: int = 50
+    # low gradient reach analysis parameters
+    lg_max_extent: int = 50
     rem_sample_distance: int = 30
     lg_interval: int = 10
-    lg_default_threshold: int = 20
     lg_slope_threshold: int = 8
+    lg_default_threshold: int = 20
 
+    # medium gradient reach analysis parameters
+    mg_max_extent: int = 50
+    mg_interval: int = 10
+    mg_slope_threshold: int = 10
+    mg_default_threshold: int = 10
+
+    # high gradient reach analysis parameters
+    hg_max_extent: int = 20
     hg_interval: int = 5
-    hg_default_threshold: int = 5
     hg_slope_threshold: int = 12
+    hg_default_threshold: int = 5
 
+    # post process
     floor_max_slope: int = 15
     min_hole_to_keep_area: float = 100000

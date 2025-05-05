@@ -84,26 +84,65 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
         if reach["length"] < config.min_reach_length:
             continue
 
-        if reach["mean_slope"] < config.gradient_threshold:
-            floor_mask = process_low_gradient_reach(
+        if reach["mean_slope"] < config.low_gradient_threshold:  # low gradient
+            extent = define_valley_extent(
                 reach.geometry,
-                dem,
-                slope,
                 graph,
-                config.cost_threshold,
+                dem,
+                cost_threshold=config.lg_max_extent,
+                min_hole_to_keep_fraction=0.01,
+            )
+            reach_rem = compute_rem(
+                reach.geometry,
+                dem.where(extent),
+                sample_distance=config.rem_sample_distance,
+            )
+            threshold = identify_rem_threshold(
+                reach_rem.where(reach_rem > -5),
+                slope.where(extent),
                 config.lg_interval,
                 config.lg_slope_threshold,
-                config.lg_default_threshold,
-                config.rem_sample_distance,
             )
-        else:
-            floor_mask = process_high_gradient_reach(
-                hand.where(basins == reach["streamID"]),
-                slope.where(basins == reach["streamID"]),
-                config.hg_slope_threshold,
+            if threshold is None:
+                threshold = config.lg_default_threshold
+                logger.debug(f"Using default rem threshold: {threshold}")
+            else:
+                logger.debug(f"Identified rem threshold: {threshold}")
+            floor_mask = reach_rem < threshold
+        elif (  # medium gradient
+            config.low_gradient_threshold
+            <= reach["mean_slope"]
+            <= config.medium_gradient_threshold
+        ):
+            hand_r = hand.where(basins == reach["streamID"])
+            extent = hand_r < config.mg_max_extent
+            threshold = identify_rem_threshold(
+                hand.where(extent),
+                slope.where(extent),
+                config.mg_interval,
+                config.mg_slope_threshold,
+            )
+            if threshold is None:
+                threshold = config.mg_default_threshold
+                logger.debug(f"Using default hand threshold: {threshold}")
+            else:
+                logger.debug(f"Identified hand threshold: {threshold}")
+            floor_mask = hand_r < threshold
+        else:  # high gradient
+            hand_r = hand.where(basins == reach["streamID"])
+            extent = hand_r < config.hg_max_extent
+            threshold = identify_rem_threshold(
+                hand.where(extent),
+                slope.where(extent),
                 config.hg_interval,
-                config.hg_default_threshold,
+                config.hg_slope_threshold,
             )
+            if threshold is None:
+                threshold = config.hg_default_threshold
+                logger.debug(f"Using default hand threshold: {threshold}")
+            else:
+                logger.debug(f"Identified hand threshold: {threshold}")
+            floor_mask = hand_r < threshold
 
         floors.data[floor_mask] = 1
         counter += 1
@@ -158,49 +197,3 @@ def remove_disconnected_areas(floor_mask_arr, reach_mask_arr):
     floor_mask_arr = np.where(labeled > 0, 1, 0)  # convert to binary mask
     floor_mask_arr = floor_mask_arr.astype(np.uint8)
     return floor_mask_arr
-
-
-def process_low_gradient_reach(
-    reach_geom,
-    dem,
-    slope,
-    graph,
-    cost_threshold,
-    lg_interval,
-    lg_slope_threshold,
-    lg_default_threshold,
-    rem_sample_distance,
-):
-    extent = define_valley_extent(
-        reach_geom,
-        graph,
-        dem,
-        cost_threshold=cost_threshold,
-        min_hole_to_keep_fraction=0.01,
-    )
-    masked_dem = dem.where(extent)
-    masked_slope = slope.where(extent)
-    reach_rem = compute_rem(reach_geom, masked_dem, sample_distance=rem_sample_distance)
-    reach_rem = reach_rem.where(reach_rem > (-lg_interval * 0.5))
-    threshold = identify_rem_threshold(
-        reach_rem, masked_slope, lg_interval, lg_slope_threshold
-    )
-    if threshold is None:
-        threshold = lg_default_threshold
-        logger.debug(f"Using default rem threshold: {threshold}")
-    else:
-        logger.debug(f"Identified rem threshold: {threshold}")
-    return reach_rem < threshold
-
-
-def process_high_gradient_reach(
-    hand, slope, hg_slope_threshold, hg_interval, hg_default_threshold
-):
-    hand = hand.where(hand < 30)
-    threshold = identify_rem_threshold(hand, slope, hg_interval, hg_slope_threshold)
-    if threshold is None:
-        threshold = hg_default_threshold
-        logger.debug(f"Using default hand threshold: {threshold}")
-    else:
-        logger.debug(f"Identified hand threshold: {threshold}")
-    return hand < threshold
