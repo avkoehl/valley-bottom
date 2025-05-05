@@ -13,7 +13,7 @@ from remaster.hydro import hand_and_basins
 from remaster.reach import network_reaches
 from remaster.extent import dem_to_graph
 from remaster.extent import define_valley_extent
-from remaster.contour_analysis import analyze_rem_contours
+from remaster.contour_analysis import identify_rem_threshold
 from remaster.rem import compute_rem
 from remaster.config import Config
 from remaster.utils.smooth import smooth_raster
@@ -71,15 +71,19 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     floors = floors.rio.write_nodata(0)
     floors = floors.astype(np.uint8)
 
-    # iterate through reaches
     counter = 1
     total = len(reaches)
     logger.info(f"Starting valley delineation for {total} reaches")
+
     for _, reach in reaches.iterrows():
         current_progress = int((counter / total) * 100)
-        logger.debug(
-            f"Processing reach {reach['streamID']} {counter}/{total} ({current_progress}%)"
+        logger.info(
+            f"Processing {reach['streamID']} {counter}/{total} ({current_progress}%)"
         )
+
+        if reach["length"] < config.min_reach_length:
+            continue
+
         if reach["mean_slope"] < config.gradient_threshold:
             floor_mask = process_low_gradient_reach(
                 reach.geometry,
@@ -93,10 +97,9 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
                 config.rem_sample_distance,
             )
         else:
-            reach_hand = hand.where(basins == reach["streamID"])
             floor_mask = process_high_gradient_reach(
-                reach_hand,
-                slope,
+                hand.where(basins == reach["streamID"]),
+                slope.where(basins == reach["streamID"]),
                 config.hg_slope_threshold,
                 config.hg_interval,
                 config.hg_default_threshold,
@@ -121,24 +124,25 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
 
 def post_process_floor_mask(floors, slope, reaches, max_slope, min_hole_area):
     # apply slope threshold
-    floors.data[slope >= max_slope] = 0
+    processed = floors.copy()
+    processed.data[slope >= max_slope] = 0
 
     # remove small holes
     num_cells = min_hole_area / (slope.rio.resolution()[0] ** 2)
-    floors.data = remove_small_holes(floors.data > 0, int(num_cells))
+    processed.data = remove_small_holes(processed.data > 0, int(num_cells))
 
     # burnin reach
     geom = mapping(reaches.geometry.union_all())
-    copy = floors.copy().astype(np.float32)
-    copy.data = np.ones_like(floors.data)
+    copy = processed.copy().astype(np.float32)
+    copy.data = np.ones_like(processed.data)
     reach_mask = copy.rio.clip([geom], all_touched=True, drop=False)
     reach_mask = reach_mask > 0
-    floors.data[reach_mask] = 1
+    processed.data[reach_mask] = 1
 
     # remove any areas that are not connected to the reach_mask
-    floors.data = remove_disconnected_areas(floors.data, reach_mask)
+    processed.data = remove_disconnected_areas(processed.data, reach_mask)
 
-    return floors.astype(np.uint8)
+    return processed.astype(np.uint8)
 
 
 def remove_disconnected_areas(floor_mask_arr, reach_mask_arr):
@@ -146,7 +150,7 @@ def remove_disconnected_areas(floor_mask_arr, reach_mask_arr):
 
     values = labeled[reach_mask_arr > 0]
     values = np.unique(values)
-    values = np.isfinite(values)
+    values = values[np.isfinite(values)]
 
     labeled = np.where(
         np.isin(labeled, values, invert=True), 0, labeled
@@ -157,7 +161,7 @@ def remove_disconnected_areas(floor_mask_arr, reach_mask_arr):
 
 
 def process_low_gradient_reach(
-    reach,
+    reach_geom,
     dem,
     slope,
     graph,
@@ -168,30 +172,35 @@ def process_low_gradient_reach(
     rem_sample_distance,
 ):
     extent = define_valley_extent(
-        reach,
+        reach_geom,
         graph,
         dem,
         cost_threshold=cost_threshold,
         min_hole_to_keep_fraction=0.01,
     )
     masked_dem = dem.where(extent)
-    reach_rem = compute_rem(reach, masked_dem, sample_distance=rem_sample_distance)
-    reach_rem = reach_rem.where(reach_rem > lg_interval)
-
-    df = analyze_rem_contours(reach_rem, slope, lg_interval)
-    threshold = df[df["median_slope"] > lg_slope_threshold]["max"].min()
-    if not np.isfinite(threshold):
+    masked_slope = slope.where(extent)
+    reach_rem = compute_rem(reach_geom, masked_dem, sample_distance=rem_sample_distance)
+    reach_rem = reach_rem.where(reach_rem > (-lg_interval * 0.5))
+    threshold = identify_rem_threshold(
+        reach_rem, masked_slope, lg_interval, lg_slope_threshold
+    )
+    if threshold is None:
         threshold = lg_default_threshold
-    threshold = max(threshold, lg_interval)
-    return reach_rem <= threshold
+        logger.debug(f"Using default rem threshold: {threshold}")
+    else:
+        logger.debug(f"Identified rem threshold: {threshold}")
+    return reach_rem < threshold
 
 
 def process_high_gradient_reach(
     hand, slope, hg_slope_threshold, hg_interval, hg_default_threshold
 ):
-    df = analyze_rem_contours(hand, slope, hg_interval)
-    threshold = df[df["median_slope"] > hg_slope_threshold]["max"].min()
-    if not np.isfinite(threshold):
+    hand = hand.where(hand < 30)
+    threshold = identify_rem_threshold(hand, slope, hg_interval, hg_slope_threshold)
+    if threshold is None:
         threshold = hg_default_threshold
-    threshold = max(threshold, hg_interval)
-    return hand <= threshold
+        logger.debug(f"Using default hand threshold: {threshold}")
+    else:
+        logger.debug(f"Identified hand threshold: {threshold}")
+    return hand < threshold
