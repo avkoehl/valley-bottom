@@ -77,9 +77,6 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
 
     for _, reach in reaches.iterrows():
         current_progress = int((counter / total) * 100)
-        logger.info(
-            f"Processing {reach['streamID']} {counter}/{total} ({current_progress}%)"
-        )
 
         if reach["length"] < config.min_reach_length:
             continue
@@ -105,9 +102,13 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
             )
             if threshold is None:
                 threshold = config.lg_default_threshold
-                logger.debug(f"Using default rem threshold: {threshold}")
+                logger.debug(
+                    f"{reach['streamID']} using default rem threshold {threshold} {counter}/{total} ({current_progress}%)"
+                )
             else:
-                logger.debug(f"Identified rem threshold: {threshold}")
+                logger.debug(
+                    f"{reach['streamID']} identified rem threshold {threshold} {counter}/{total} ({current_progress}%)"
+                )
             floor_mask = reach_rem < threshold
         elif (  # medium gradient
             config.low_gradient_threshold
@@ -124,9 +125,13 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
             )
             if threshold is None:
                 threshold = config.mg_default_threshold
-                logger.debug(f"Using default hand threshold: {threshold}")
+                logger.debug(
+                    f"{reach['streamID']} using default hand threshold {threshold} {counter}/{total} ({current_progress}%)"
+                )
             else:
-                logger.debug(f"Identified hand threshold: {threshold}")
+                logger.debug(
+                    f"{reach['streamID']} identified hand threshold {threshold} {counter}/{total} ({current_progress}%)"
+                )
             floor_mask = hand_r < threshold
         else:  # high gradient
             hand_r = hand.where(basins == reach["streamID"])
@@ -139,9 +144,13 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
             )
             if threshold is None:
                 threshold = config.hg_default_threshold
-                logger.debug(f"Using default hand threshold: {threshold}")
+                logger.debug(
+                    f"{reach['streamID']} using default hand threshold {threshold} {counter}/{total} ({current_progress}%)"
+                )
             else:
-                logger.debug(f"Identified hand threshold: {threshold}")
+                logger.debug(
+                    f"{reach['streamID']} identified hand threshold {threshold} {counter}/{total} ({current_progress}%)"
+                )
             floor_mask = hand_r < threshold
 
         floors.data[floor_mask] = 1
