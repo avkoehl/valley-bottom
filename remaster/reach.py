@@ -24,6 +24,10 @@ def network_reaches(
         )
         reaches["streamID"] = row["streamID"] * 100 + reaches["reach_id"]
         reaches["length"] = reaches.geometry.length
+        reaches["network_id"] = row["network_id"]
+        reaches["strahler"] = row["strahler"]
+        reaches["mainstem"] = row["mainstem"]
+        reaches["outlet"] = row["outlet"]
         reach_df_list.append(reaches)
 
     reaches = pd.concat(reach_df_list, ignore_index=True)

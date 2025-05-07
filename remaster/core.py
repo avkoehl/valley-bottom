@@ -15,6 +15,7 @@ from remaster.extent import dem_to_graph
 from remaster.extent import define_valley_extent
 from remaster.contour_analysis import identify_rem_threshold
 from remaster.rem import compute_rem
+from remaster.strahler import label_streams
 from remaster.config import Config
 from remaster.utils.smooth import smooth_raster
 from remaster.utils.time import format_time_duration
@@ -53,6 +54,7 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     aligned_flowlines = align_flowlines(
         dem, flowlines, wbe, min_length=config.min_reach_length
     )
+    aligned_flowlines = label_streams(aligned_flowlines)
 
     logger.debug("Split flowlines into reaches by shifts in slope")
     reaches = network_reaches(
