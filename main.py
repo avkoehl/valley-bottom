@@ -9,12 +9,12 @@ config = Config()
 
 dem = rxr.open_rasterio(
     # "../eval/data/topo/1804001001_dem.tif",
-    "../eval/data/topo/1805000203_dem.tif",
+    "./data/huc10/1702000801-dem10m.tif",
     masked=True,
 ).squeeze()
 flowlines = gpd.read_file(
     ###    "../eval/data/topo/1804001001_flowlines.gpkg",
-    "../eval/data/topo/1805000203_flowlines.gpkg",
+    "./data/huc10/1702000801-flowlinesmr.gpkg"
 )
 
 
