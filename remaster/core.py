@@ -105,27 +105,12 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
                     config.lg_slope_threshold,
                 )
             elif reach["strahler"] == 2:
-                threshold = identify_rem_threshold(
-                    reach_rem.where(reach_rem > -5),
-                    slope.where(extent),
-                    config.lg_slope_threshold,
-                    config.lg_interval,
-                )
+                threshold = 5
             else:
-                threshold = identify_rem_threshold(
-                    reach_rem.where(reach_rem > -5),
-                    slope.where(extent),
-                    5,
-                    config.lg_slope_threshold,
-                )
+                threshold = 3
 
             if threshold is None:
-                if reach["strahler"] >= 3:
-                    threshold = config.lg_default_threshold
-                elif reach["strahler"] == 2:
-                    threshold = 10
-                else:
-                    threshold = 5
+                threshold = config.lg_default_threshold
                 logger.debug(
                     f"{reach['streamID']} using default rem threshold {threshold} {counter}/{total} ({current_progress}%)"
                 )
