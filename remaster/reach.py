@@ -28,6 +28,7 @@ def network_reaches(
         reaches["strahler"] = row["strahler"]
         reaches["mainstem"] = row["mainstem"]
         reaches["outlet"] = row["outlet"]
+        reaches["stream_label"] = row["stream_label"]
         reach_df_list.append(reaches)
 
     reaches = pd.concat(reach_df_list, ignore_index=True)

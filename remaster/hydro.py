@@ -53,7 +53,7 @@ def fill_depressions_with_retry(
     )
 
 
-def align_flowlines(dem, flowlines, wbe, min_length):
+def align_flowlines(dem, flowlines, wbe):
     dem = rxr_to_wbeRaster(dem, wbe)
     conditioned = fill_depressions_with_retry(
         dem, wbe, fix_flats=True, flat_increment=None, max_depth=None
@@ -61,7 +61,7 @@ def align_flowlines(dem, flowlines, wbe, min_length):
     pointer = wbe.d8_pointer(conditioned)
     seed_points = _identify_source_nodes(flowlines, wbe)
     aligned_stream = wbe.trace_downslope_flowpaths(seed_points, pointer)
-    aligned_flowlines = vectorize_flowpaths(aligned_stream, pointer, wbe, min_length)
+    aligned_flowlines = vectorize_flowpaths(aligned_stream, pointer, wbe)
     return aligned_flowlines
 
 

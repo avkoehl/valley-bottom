@@ -7,6 +7,10 @@ def label_streams(flowlines):
         compute_stream_order, include_groups=False
     )
     flowlines = flowlines.reset_index(level=0)
+
+    # label mainstem and tributaries
+    flowlines = assign_labels(flowlines)
+    flowlines = flowlines.reset_index(drop=True)
     return flowlines
 
 
@@ -18,6 +22,112 @@ def lines_to_network(lines):
         end = line.geometry.coords[-1]
         G.add_edge(start, end, streamID=line["streamID"])
     return G
+
+
+def assign_labels(flowlines):
+    """
+    Recursively label stream networks following mainstems and tributaries.
+
+    Parameters:
+    flowlines: GeoDataFrame with strahler order, mainstem, and network_id attributes
+
+    Returns:
+    GeoDataFrame with additional 'stream_label' attribute
+    """
+    # Initialize stream labels column
+    flowlines["stream_label"] = None
+
+    # Process each network separately
+    for network_id, network_group in flowlines.groupby("network_id"):
+        network_df = network_group.copy()
+        G = lines_to_network(network_group)
+
+        # Find outlet node (node with no outgoing edges)
+        outlet_nodes = [node for node in G.nodes() if G.out_degree(node) == 0]
+        if len(outlet_nodes) != 1:
+            raise ValueError(f"Network {network_id} should have exactly one outlet")
+        outlet_node = outlet_nodes[0]
+
+        # Use a dictionary to track counters for each label prefix
+        counter_dict = {}
+
+        # Start recursive labeling from the outlet
+        network_df = label_river_recursive(
+            G, network_df, outlet_node, f"{network_id}", counter_dict
+        )
+
+        # Update the main flowlines dataframe
+        flowlines.loc[network_df.index, "stream_label"] = network_df["stream_label"]
+
+    return flowlines
+
+
+def label_river_recursive(G, flowlines, current_node, current_label, counter_dict):
+    """
+    Recursively label streams, following mainstem first, then tributaries.
+
+    Parameters:
+    G: NetworkX DiGraph representation of the stream network
+    flowlines: GeoDataFrame containing the stream segments
+    current_node: Node to start labeling from (typically an outlet or junction)
+    current_label: Label to assign to the mainstem from this node
+    counter_dict: Dictionary to track tributary counters for each label prefix
+
+    Returns:
+    Updated flowlines GeoDataFrame with stream_label column populated
+    """
+    # Get all incoming edges to current node
+    upstream_edges = list(G.in_edges(current_node, data=True))
+
+    if not upstream_edges:
+        return flowlines  # No more upstream segments
+
+    # Prepare data for sorting edges by priority
+    edge_data = []
+    for u, v, data in upstream_edges:
+        stream_id = data["streamID"]
+        strahler = flowlines.loc[stream_id, "strahler"]
+        is_mainstem = flowlines.loc[stream_id, "mainstem"]
+        length = flowlines.loc[stream_id, "geometry"].length
+        edge_data.append((u, v, stream_id, strahler, is_mainstem, length))
+
+    # Sort by mainstem flag first, then by Strahler order, then by length
+    edge_data.sort(key=lambda x: (-int(x[4]), -x[3], -x[5]))
+
+    # Process mainstem first, then tributaries
+    if edge_data:
+        # First edge after sorting is mainstem (highest priority)
+        mainstem_u, mainstem_v, mainstem_stream_id = edge_data[0][:3]
+
+        # Label the mainstem with current label
+        flowlines.loc[mainstem_stream_id, "stream_label"] = current_label
+
+        # Recursively process mainstem first
+        flowlines = label_river_recursive(
+            G, flowlines, mainstem_u, current_label, counter_dict
+        )
+
+        # Then process each tributary with a new label
+        for i in range(1, len(edge_data)):
+            trib_u, trib_v, trib_stream_id = edge_data[i][:3]
+
+            # Initialize counter for this prefix if not exists
+            if current_label not in counter_dict:
+                counter_dict[current_label] = 1
+
+            # Create tributary label and increment counter
+            trib_label = f"{current_label}.{counter_dict[current_label]}"
+            counter_dict[current_label] += 1
+
+            # Label this tributary edge
+            flowlines.loc[trib_stream_id, "stream_label"] = trib_label
+
+            # Recursively label upstream of this tributary
+            flowlines = label_river_recursive(
+                G, flowlines, trib_u, trib_label, counter_dict
+            )
+
+    return flowlines
 
 
 def split_flowlines(flowlines):

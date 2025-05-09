@@ -11,7 +11,7 @@ from remaster.utils.wbw_helper import (
 )
 
 
-def vectorize_flowpaths(stream, pointer, wbe, min_length):
+def vectorize_flowpaths(stream, pointer, wbe):
     labeled_stream = wbe.stream_link_identifier(pointer, stream)
     link_class = wbe.stream_link_class(pointer, stream)
     link_class_rxr = wbeRaster_to_rxr(link_class, wbe)
@@ -33,7 +33,6 @@ def vectorize_flowpaths(stream, pointer, wbe, min_length):
         linestring = LineString(zip(xs, ys))
         flowlines.append({"geometry": linestring, "streamID": stream_id})
     flowlines_gdf = gpd.GeoDataFrame(flowlines, crs=link_class_rxr.rio.crs)
-    flowlines_gdf = flowlines_gdf[flowlines_gdf.geometry.length > min_length]
     return flowlines_gdf
 
 
