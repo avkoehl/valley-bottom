@@ -96,6 +96,7 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
                 dem.where(extent),
                 sample_distance=config.rem_sample_distance,
             )
+            # reach_rem = hand.where(basins == reach["streamID"])
 
             if reach["strahler"] >= 3:
                 threshold = 20
