@@ -84,19 +84,19 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
             continue
 
         if reach["mean_slope"] < config.low_gradient_threshold:  # low gradient
-            extent = define_valley_extent(
-                reach.geometry,
-                graph,
-                dem,
-                cost_threshold=config.lg_max_extent,
-                min_hole_to_keep_fraction=0.01,
-            )
-            reach_rem = compute_rem(
-                reach.geometry,
-                dem.where(extent),
-                sample_distance=config.rem_sample_distance,
-            )
-            # reach_rem = hand.where(basins == reach["streamID"])
+            # extent = define_valley_extent(
+            #     reach.geometry,
+            #     graph,
+            #     dem,
+            #     cost_threshold=config.lg_max_extent,
+            #     min_hole_to_keep_fraction=0.01,
+            # )
+            # reach_rem = compute_rem(
+            #     reach.geometry,
+            #     dem.where(extent),
+            #     sample_distance=config.rem_sample_distance,
+            # )
+            reach_rem = hand.where(basins == reach["streamID"])
 
             if reach["strahler"] >= 3:
                 threshold = 20
