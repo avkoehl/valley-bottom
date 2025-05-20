@@ -49,9 +49,6 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     logger.debug("Align Flowlines to dem")
     aligned_flowlines = align_flowlines(dem, flowlines, wbe)
     aligned_flowlines = label_streams(aligned_flowlines)
-    aligned_flowlines = aligned_flowlines.loc[
-        aligned_flowlines.length > config.min_reach_length
-    ]
 
     logger.debug("Split flowlines into reaches by shifts in slope")
     reaches = network_reaches(
