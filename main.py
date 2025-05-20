@@ -9,14 +9,13 @@ config = Config()
 
 dem = rxr.open_rasterio(
     # "../eval/data/topo/1804001001_dem.tif",
-    "./data/huc10/1702000801-dem10m.tif",
+    "./data/huc10/1710010205-dem10m.tif",
     masked=True,
 ).squeeze()
 flowlines = gpd.read_file(
     ###    "../eval/data/topo/1804001001_flowlines.gpkg",
-    "./data/huc10/1702000801-flowlinesmr.gpkg"
+    "./data/huc10/1710010205-flowlinesmr.gpkg"
 )
 
 
-floors = extract_valleyfloors(dem, flowlines, config)
-floors.rio.to_raster("floors.tif")
+floors_bin, floors_labeled, basins = extract_valleyfloors(dem, flowlines, config)

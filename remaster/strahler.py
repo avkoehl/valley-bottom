@@ -32,10 +32,10 @@ def assign_labels(flowlines):
     flowlines: GeoDataFrame with strahler order, mainstem, and network_id attributes
 
     Returns:
-    GeoDataFrame with additional 'stream_label' attribute
+    GeoDataFrame with additional 'label' attribute
     """
     # Initialize stream labels column
-    flowlines["stream_label"] = None
+    flowlines["label"] = None
 
     # Process each network separately
     for network_id, network_group in flowlines.groupby("network_id"):
@@ -57,7 +57,7 @@ def assign_labels(flowlines):
         )
 
         # Update the main flowlines dataframe
-        flowlines.loc[network_df.index, "stream_label"] = network_df["stream_label"]
+        flowlines.loc[network_df.index, "label"] = network_df["label"]
 
     return flowlines
 
@@ -74,7 +74,7 @@ def label_river_recursive(G, flowlines, current_node, current_label, counter_dic
     counter_dict: Dictionary to track tributary counters for each label prefix
 
     Returns:
-    Updated flowlines GeoDataFrame with stream_label column populated
+    Updated flowlines GeoDataFrame with label column populated
     """
     # Get all incoming edges to current node
     upstream_edges = list(G.in_edges(current_node, data=True))
@@ -100,7 +100,7 @@ def label_river_recursive(G, flowlines, current_node, current_label, counter_dic
         mainstem_u, mainstem_v, mainstem_stream_id = edge_data[0][:3]
 
         # Label the mainstem with current label
-        flowlines.loc[mainstem_stream_id, "stream_label"] = current_label
+        flowlines.loc[mainstem_stream_id, "label"] = current_label
 
         # Recursively process mainstem first
         flowlines = label_river_recursive(
@@ -120,7 +120,7 @@ def label_river_recursive(G, flowlines, current_node, current_label, counter_dic
             counter_dict[current_label] += 1
 
             # Label this tributary edge
-            flowlines.loc[trib_stream_id, "stream_label"] = trib_label
+            flowlines.loc[trib_stream_id, "label"] = trib_label
 
             # Recursively label upstream of this tributary
             flowlines = label_river_recursive(

@@ -11,9 +11,6 @@ from remaster.hydro import calc_slope
 from remaster.hydro import align_flowlines
 from remaster.hydro import hand_and_basins
 from remaster.reach import network_reaches
-from remaster.extent import dem_to_graph
-from remaster.extent import define_valley_extent
-from remaster.rem import compute_rem
 from remaster.strahler import label_streams
 from remaster.config import Config
 from remaster.utils.smooth import smooth_raster
@@ -66,12 +63,11 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     )
     logger.debug("Compute HAND and reach catchments")
     hand, basins = hand_and_basins(dem, reaches, wbe)
-    logger.debug("Create cost distance graph")
-    graph = dem_to_graph(dem.data, walls=np.isnan(dem.data))
+
     floors = dem.copy()
     floors.data = np.zeros_like(dem.data)
     floors = floors.rio.write_nodata(0)
-    floors = floors.astype(np.uint8)
+    floors = floors.astype(np.uint16)
 
     counter = 1
     total = len(reaches)
@@ -79,74 +75,79 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
 
     for _, reach in reaches.iterrows():
         current_progress = int((counter / total) * 100)
+        reach_hand = hand.where(basins == reach["streamID"])
+        threshold = select_threshold(reach["mean_slope"], reach["strahler"], config)
 
-        if reach["length"] < config.min_reach_length:
-            continue
-
-        if reach["mean_slope"] < config.low_gradient_threshold:  # low gradient
-            # extent = define_valley_extent(
-            #     reach.geometry,
-            #     graph,
-            #     dem,
-            #     cost_threshold=config.lg_max_extent,
-            #     min_hole_to_keep_fraction=0.01,
-            # )
-            # reach_rem = compute_rem(
-            #     reach.geometry,
-            #     dem.where(extent),
-            #     sample_distance=config.rem_sample_distance,
-            # )
-            reach_rem = hand.where(basins == reach["streamID"])
-
-            if reach["strahler"] >= 3:
-                threshold = 20
-            elif reach["strahler"] == 2:
-                threshold = 10
-            else:
-                threshold = 5
-
-            logger.debug(
-                f"{reach['streamID']} using default rem threshold {threshold} {counter}/{total} ({current_progress}%)"
-            )
-            floor_mask = reach_rem < threshold
-        elif (  # medium gradient
-            config.low_gradient_threshold
-            <= reach["mean_slope"]
-            <= config.medium_gradient_threshold
-        ):
-            hand_r = hand.where(basins == reach["streamID"])
-            threshold = 10
-            logger.debug(
-                f"{reach['streamID']} using default hand threshold {threshold} {counter}/{total} ({current_progress}%)"
-            )
-            floor_mask = hand_r < threshold
-        else:  # high gradient
-            hand_r = hand.where(basins == reach["streamID"])
-            threshold = 5
-            logger.debug(
-                f"{reach['streamID']} using default hand threshold {threshold} {counter}/{total} ({current_progress}%)"
-            )
-            floor_mask = hand_r < threshold
-
+        floor_mask = reach_hand < threshold
         floors.data[floor_mask] = 1
+        logger.debug(
+            f"{reach['streamID']} (slope: {reach['mean_slope']:.2f}, order: {reach['strahler']}, hand: {threshold}) {current_progress}%"
+        )
         counter += 1
 
-    logger.info("Post-processing the valley floor mask")
+    # post process
     floors = post_process_floor_mask(
         floors,
         slope,
-        streams_mask(reaches, dem),
+        stream_mask(reaches.geometry.union_all(), dem),
         config.floor_max_slope,
         config.min_hole_to_keep_area,
     )
+
+    # label with the basin id where basin id is remapped to label?
+    # get the mapping for the streamID to the segment id
+    mapping = {}
+    for i, value in enumerate(reaches["streamID"]):
+        mapping[value] = reaches["segmentID"].iloc[i]
+    remap_func = np.vectorize(lambda x: mapping.get(x, x))
+    remapped_basins = basins.copy()
+    remapped_basins.data = remap_func(basins.data)
+    floors_labeled = floors * remapped_basins
+    floors_labeled = floors_labeled.where(floors_labeled > 0)
+    floors_labeled = floors_labeled.rio.write_nodata(0)
+    floors_labeled = floors_labeled.astype(np.uint16)
+
     end_time = time.time()
     elapsed_time = format_time_duration(end_time - start_time)
     logger.info(f"Valley floor extraction completed, execution time: {elapsed_time}")
-    return floors
+    return floors, floors_labeled, remapped_basins
 
 
-def streams_mask(reaches, base):
-    geom = mapping(reaches.geometry.union_all())
+def select_threshold(mean_slope, strahler, config):
+    """
+    Select the threshold for valley floor extraction based on slope and Strahler order.
+
+    Parameters
+    ----------
+    mean_slope : float
+        The mean slope of the reach.
+    strahler : int
+        The Strahler order of the reach.
+    config : Config
+        Configuration object containing parameters for the extraction process.
+
+    Returns
+    -------
+    int
+        The selected threshold for valley floor extraction.
+    """
+    if mean_slope < config.low_gradient_threshold:  # low gradient
+        if strahler >= 3:
+            return config.hand_lg_strahler_threeplus
+        elif strahler == 2:
+            return config.hand_lg_strahler_two
+        else:
+            return config.hand_lg_strahler_one
+    elif (  # medium gradient
+        config.low_gradient_threshold <= mean_slope <= config.medium_gradient_threshold
+    ):
+        return config.hand_mg
+    else:  # high gradient
+        return config.hand_hg
+
+
+def stream_mask(linestring, base):
+    geom = mapping(linestring)
     stream_mask = base.rio.clip([geom], all_touched=True, drop=False)
     stream_mask = stream_mask > 0
     return stream_mask

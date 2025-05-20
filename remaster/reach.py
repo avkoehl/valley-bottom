@@ -22,13 +22,14 @@ def network_reaches(
         reaches = segment_reaches(
             row.geometry, elevation_raster, sample_distance, penalty, minsize
         )
+        reaches["segmentID"] = row["streamID"]
         reaches["streamID"] = row["streamID"] * 100 + reaches["reach_id"]
         reaches["length"] = reaches.geometry.length
         reaches["network_id"] = row["network_id"]
         reaches["strahler"] = row["strahler"]
         reaches["mainstem"] = row["mainstem"]
         reaches["outlet"] = row["outlet"]
-        reaches["stream_label"] = row["stream_label"]
+        reaches["label"] = row["label"]
         reach_df_list.append(reaches)
 
     reaches = pd.concat(reach_df_list, ignore_index=True)

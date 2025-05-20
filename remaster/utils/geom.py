@@ -4,6 +4,7 @@ import geopandas as gpd
 import numpy as np
 import rasterio
 from shapely.geometry import Polygon
+from shapely.geometry import shape
 import xarray as xr
 
 
@@ -17,6 +18,22 @@ def coords_along_linestring(linestring, sample_distance):
         ys[i] = point.y
 
     return xr.DataArray(xs, dims="z"), xr.DataArray(ys, dims="z")
+
+
+def vectorize_raster(raster):
+    transform = raster.rio.transform()
+    geoms = []
+    values = []
+    for geom, value in rasterio.features.shapes(raster.data, transform=transform):
+        if np.isnan(value):
+            continue
+        if value <= 0:
+            continue
+        geoms.append(shape(geom))
+        values.append(value)
+
+    df = gpd.GeoDataFrame({"value": values, "geometry": geoms}, crs=raster.rio.crs)
+    return df
 
 
 def binary_raster_to_polygon(raster, return_df=False):
