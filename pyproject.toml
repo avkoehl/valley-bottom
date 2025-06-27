@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "remaster"
+name = "valley_bottom"
 version = "0.1.0"
 description = ""
 authors = ["Arthur Koehl <avkoehl@ucdavis.edu>"]
