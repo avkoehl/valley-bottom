@@ -1,21 +1,16 @@
 import matplotlib.pyplot as plt
-import geopandas as gpd
-import rioxarray as rxr
 
-from remaster.core import extract_valleyfloors
-from remaster.config import Config
+from valley_bottom import extract_valley_bottom
+from valley_bottom import Config
+from valley_bottom import load_sample_dem
+from valley_bottom import load_sample_flowlines
 
 config = Config()
 
-dem = rxr.open_rasterio(
-    # "../eval/data/topo/1804001001_dem.tif",
-    "./data/huc10/1710010205-dem10m.tif",
-    masked=True,
-).squeeze()
-flowlines = gpd.read_file(
-    ###    "../eval/data/topo/1804001001_flowlines.gpkg",
-    "./data/huc10/1710010205-flowlinesmr.gpkg"
-)
+dem = load_sample_dem()
+flowlines = load_sample_flowlines()
 
+bottom = extract_valley_bottom(dem, flowlines, config, return_basins=False)
 
-floors_bin, floors_labeled, basins = extract_valleyfloors(dem, flowlines, config)
+bottom.plot(figsize=(10, 10))
+plt.show()

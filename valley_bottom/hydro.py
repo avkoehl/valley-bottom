@@ -8,14 +8,14 @@ import numpy as np
 from shapely import Point
 import networkx as nx
 
-from remaster.streams_to_vector import vectorize_flowpaths
-from remaster.utils.wbw_helper import (
+from valley_bottom.streams_to_vector import vectorize_flowpaths
+from valley_bottom.utils.wbw_helper import (
     gpd_to_wbeVector,
     wbeRaster_to_rxr,
     rxr_to_wbeRaster,
 )
-from remaster.utils.geom import binary_raster_to_polygon
-from remaster.streams_to_vector import vectorize_flowpaths
+from valley_bottom.utils.geom import binary_raster_to_polygon
+from valley_bottom.streams_to_vector import vectorize_flowpaths
 
 
 def calc_slope(dem, wbe):

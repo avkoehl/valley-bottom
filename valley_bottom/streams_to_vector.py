@@ -6,7 +6,7 @@ from shapely import LineString
 from rasterio.transform import xy
 
 
-from remaster.utils.wbw_helper import (
+from valley_bottom.utils.wbw_helper import (
     wbeRaster_to_rxr,
 )
 

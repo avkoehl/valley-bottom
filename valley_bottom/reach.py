@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 
-from remaster.utils.geom import coords_along_linestring
+from valley_bottom.utils.geom import coords_along_linestring
 
 
 def network_reaches(

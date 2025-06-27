@@ -7,6 +7,9 @@ working_dir/
 cache/
 runner.py
 
+!valley_bottom/data
+!valley_bottom/data/**
+
 # vim
 [._]*.s[a-v][a-z]
 [._]*.sw[a-p]
