@@ -33,10 +33,10 @@ class Config:
     hand_hg : int, default=5
         the hand threshold for high gradient reaches
 
-    floor_max_slope : int, default=12
-        slopes greater than this are removed from the floor mask
+    bottom_max_slope : int, default=12
+        slopes greater than this are removed from the valley bottom mask
     min_hole_to_keep_area : float, default=100_000
-        the minimum area of a hole to keep it in the floor mask
+        the minimum area of a hole to keep it in the valley bottom mask
 
     Examples
     --------
@@ -72,5 +72,5 @@ class Config:
     hand_hg: int = 5
 
     # post process
-    floor_max_slope: int = 12
+    bottom_max_slope: int = 12
     min_hole_to_keep_area: float = 100000

@@ -7,19 +7,19 @@ from skimage.morphology import label
 from shapely.geometry import mapping
 from loguru import logger
 
-from remaster.hydro import calc_slope
-from remaster.hydro import align_flowlines
-from remaster.hydro import hand_and_basins
-from remaster.reach import network_reaches
-from remaster.strahler import label_streams
-from remaster.config import Config
-from remaster.utils.smooth import smooth_raster
-from remaster.utils.time import format_time_duration
+from valley_bottom.hydro import calc_slope
+from valley_bottom.hydro import align_flowlines
+from valley_bottom.hydro import hand_and_basins
+from valley_bottom.reach import network_reaches
+from valley_bottom.strahler import label_streams
+from valley_bottom.config import Config
+from valley_bottom.utils.smooth import smooth_raster
+from valley_bottom.utils.time import format_time_duration
 
 
-def extract_valleyfloors(dem, flowlines, config=Config()):
+def extract_valley_bottom(dem, flowlines, config=Config(), return_basins=False):
     """
-    Extract valley floors from a DEM using REM approach.
+    Extract valley bottoms from a DEM using height above nearest drainage (HAND) method.
 
     Parameters
     ----------
@@ -29,15 +29,17 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
         The flowlines data.
     config : Config
         Configuration object containing parameters for the extraction process.
+    return_basins : bool
+        Whether to return the basin labels.
 
     Returns
     -------
     xarray.DataArray
-        The extracted valley floors.
+        The extracted valley bottom.
     """
     start_time = time.time()
     logger.info(
-        f"Starting valley floor extraction with DEM shape: {dem.shape}, resolution: {dem.rio.resolution()}, and {len(flowlines)} flowlines"
+        f"Starting valley bottom extraction with DEM shape: {dem.shape}, resolution: {dem.rio.resolution()}, and {len(flowlines)} flowlines"
     )
     logger.debug(f"Configuration parameters: {config.__dict__}")
 
@@ -61,10 +63,10 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     logger.debug("Compute HAND and reach catchments")
     hand, basins = hand_and_basins(dem, reaches, wbe)
 
-    floors = dem.copy()
-    floors.data = np.zeros_like(dem.data)
-    floors = floors.rio.write_nodata(0)
-    floors = floors.astype(np.uint16)
+    bottoms = dem.copy()
+    bottoms.data = np.zeros_like(dem.data)
+    bottoms = bottoms.rio.write_nodata(0)
+    bottoms = bottoms.astype(np.uint16)
 
     counter = 1
     total = len(reaches)
@@ -75,19 +77,19 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
         reach_hand = hand.where(basins == reach["streamID"])
         threshold = select_threshold(reach["mean_slope"], reach["strahler"], config)
 
-        floor_mask = reach_hand < threshold
-        floors.data[floor_mask] = 1
+        bottom_mask = reach_hand < threshold
+        bottoms.data[bottom_mask] = 1
         logger.debug(
             f"{reach['streamID']} (slope: {reach['mean_slope']:.2f}, order: {reach['strahler']}, hand: {threshold}) {current_progress}%"
         )
         counter += 1
 
     # post process
-    floors = post_process_floor_mask(
-        floors,
+    bottoms = post_process_bottom_mask(
+        bottoms,
         slope,
         stream_mask(reaches.geometry.union_all(), dem),
-        config.floor_max_slope,
+        config.bottom_max_slope,
         config.min_hole_to_keep_area,
     )
 
@@ -99,20 +101,22 @@ def extract_valleyfloors(dem, flowlines, config=Config()):
     remap_func = np.vectorize(lambda x: mapping.get(x, x))
     remapped_basins = basins.copy()
     remapped_basins.data = remap_func(basins.data)
-    floors_labeled = floors * remapped_basins
-    floors_labeled = floors_labeled.where(floors_labeled > 0)
-    floors_labeled = floors_labeled.rio.write_nodata(0)
-    floors_labeled = floors_labeled.astype(np.uint16)
+    bottoms_labeled = bottoms * remapped_basins
+    bottoms_labeled = bottoms_labeled.where(bottoms_labeled > 0)
+    bottoms_labeled = bottoms_labeled.rio.write_nodata(0)
+    bottoms_labeled = bottoms_labeled.astype(np.uint16)
 
     end_time = time.time()
     elapsed_time = format_time_duration(end_time - start_time)
-    logger.info(f"Valley floor extraction completed, execution time: {elapsed_time}")
-    return floors, floors_labeled, remapped_basins
+    logger.info(f"Valley bottom extraction completed, execution time: {elapsed_time}")
+    if return_basins:
+        return bottoms_labeled, remapped_basins
+    return bottoms_labeled
 
 
 def select_threshold(mean_slope, strahler, config):
     """
-    Select the threshold for valley floor extraction based on slope and Strahler order.
+    Select the threshold for valley bottom extraction based on slope and Strahler order.
 
     Parameters
     ----------
@@ -126,7 +130,7 @@ def select_threshold(mean_slope, strahler, config):
     Returns
     -------
     int
-        The selected threshold for valley floor extraction.
+        The selected threshold for valley bottom extraction.
     """
     if mean_slope < config.low_gradient_threshold:  # low gradient
         if strahler >= 3:
@@ -150,10 +154,10 @@ def stream_mask(linestring, base):
     return stream_mask
 
 
-def post_process_floor_mask(
-    floors, slope, stream_mask, max_slope, min_hole_area
+def post_process_bottom_mask(
+    bottoms, slope, stream_mask, max_slope, min_hole_area
 ):  # apply slope threshold
-    processed = floors.copy()
+    processed = bottoms.copy()
     processed.data[slope >= max_slope] = 0
 
     # remove small holes
@@ -169,8 +173,8 @@ def post_process_floor_mask(
     return processed.astype(np.uint8)
 
 
-def remove_disconnected_areas(floor_mask_arr, reach_mask_arr):
-    labeled = label(floor_mask_arr, connectivity=2)
+def remove_disconnected_areas(bottom_mask_arr, reach_mask_arr):
+    labeled = label(bottom_mask_arr, connectivity=2)
 
     values = labeled[reach_mask_arr > 0]
     values = np.unique(values)
@@ -179,6 +183,6 @@ def remove_disconnected_areas(floor_mask_arr, reach_mask_arr):
     labeled = np.where(
         np.isin(labeled, values, invert=True), 0, labeled
     )  # remove all other areas
-    floor_mask_arr = np.where(labeled > 0, 1, 0)  # convert to binary mask
-    floor_mask_arr = floor_mask_arr.astype(np.uint8)
-    return floor_mask_arr
+    bottom_mask_arr = np.where(labeled > 0, 1, 0)  # convert to binary mask
+    bottom_mask_arr = bottom_mask_arr.astype(np.uint8)
+    return bottom_mask_arr
